@@ -1,0 +1,24 @@
+# --- System Trash ---
+# These are hidden files Windows and Mac create that look messy on GitHub
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# --- Editor Settings ---
+# This hides your personal VS Code or text editor settings
+.vscode/
+.idea/
+*.swp
+*.scratch
+
+# --- Logs ---
+# If your code ever crashes and makes an error log, this keeps it private
+*.log
+npm-debug.log*
+
+# --- Personal Notes ---
+# This is the "Secret Sauce" line. 
+# Anything you put in a file called 'notes.txt' will stay on your 
+# computer and NEVER be seen on GitHub. 
+# Use this to keep track of your inspiration safely!
+notes.txt
