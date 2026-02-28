@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Neon Unlimited Metronome</title>
+    <style>
+        :root {
+            --bg-color: #050509;
+            --panel-bg: #0d0d1a;
+            --neon-cyan: #0ff;
+            --neon-purple: #bc13fe;
+            --neon-pink: #ff0055;
+            --neon-green: #0f0;
+            --cyan-glow: 0 0 10px var(--neon-cyan);
+            --purple-glow: 0 0 15px var(--neon-purple);
+        }
+
+        body {
+            font-family: 'Courier New', Courier, monospace;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: var(--bg-color);
+            margin: 0;
+            overflow: hidden;
+        }
+
+        /* Neon Grid Background */
+        body::before {
+            content: "";
+            position: absolute;
+            width: 200%; height: 200%;
+            top: -50%; left: -50%;
+            background-image: 
+                linear-gradient(rgba(188, 19, 254, 0.1) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 255, 255, 0.1) 1px, transparent 1px);
+            background-size: 50px 50px;
+            transform: perspective(500px) rotateX(60deg);
+            animation: gridMove 5s infinite linear;
+            z-index: -1;
+        }
+
+        @keyframes gridMove {
+            from { transform: perspective(500px) rotateX(60deg) translateY(0); }
+            to { transform: perspective(500px) rotateX(60deg) translateY(50px); }
+        }
+
+        .metronome-container {
+            background: var(--panel-bg);
+            padding: 40px;
+            border-radius: 20px;
+            border: 2px solid var(--neon-purple);
+            box-shadow: 0 0 25px rgba(188, 19, 254, 0.4);
+            text-align: center;
+            width: 320px;
+            z-index: 1;
+        }
+
+        h1 {
+            color: #fff;
+            text-shadow: var(--purple-glow);
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            margin-bottom: 30px;
+        }
+
+        .control-group { margin-bottom: 25px; }
+
+        label {
+            display: block;
+            color: var(--neon-cyan);
+            font-size: 12px;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            text-shadow: 0 0 5px var(--neon-cyan);
+        }
+
+        input[type="number"] {
+            width: 80%;
+            padding: 12px;
+            font-size: 24px;
+            background: #000;
+            border: 2px solid var(--neon-cyan);
+            color: var(--neon-cyan);
+            text-align: center;
+            border-radius: 5px;
+            box-shadow: inset 0 0 8px rgba(0, 255, 255, 0.2);
+        }
+
+        input[type="range"] {
+            width: 100%;
+            cursor: pointer;
+            accent-color: var(--neon-cyan);
+        }
+
+        .buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-top: 20px;
+        }
+
+        button {
+            padding: 12px 25px;
+            font-weight: bold;
+            cursor: pointer;
+            text-transform: uppercase;
+            background: transparent;
+            border-radius: 5px;
+            transition: 0.2s;
+        }
+
+        #playBtn { color: var(--neon-green); border: 2px solid var(--neon-green); }
+        #playBtn:hover { background: var(--neon-green); color: #000; box-shadow: 0 0 15px var(--neon-green); }
+
+        #pauseBtn { color: var(--neon-pink); border: 2px solid var(--neon-pink); }
+        #pauseBtn:hover { background: var(--neon-pink); color: #fff; box-shadow: 0 0 15px var(--neon-pink); }
+
+        #statusText {
+            margin-top: 20px;
+            font-size: 11px;
+            color: #555;
+            letter-spacing: 1px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="metronome-container">
+    <h1>Metronome</h1>
+    
+    <div class="control-group">
+        <label>BPM (Unlimited)</label>
+        <input type="number" id="bpmInput" value="120">
+    </div>
+
+    <div class="control-group">
+        <label>Volume: <span id="dbDisplay">0.0 dB</span></label>
+        <input type="range" id="volInput" min="0.001" max="1" step="0.001" value="1">
+    </div>
+
+    <div class="buttons">
+        <button id="playBtn">START</button>
+        <button id="pauseBtn">STOP</button>
+    </div>
+
+    <div id="statusText">LINKED TO DRUMS.MP4</div>
+</div>
+
+<script>
+    let audioCtx, drumBuffer, gainNode, isPlaying = false, nextNoteTime = 0, timerID;
+
+    const bpmInput = document.getElementById('bpmInput');
+    const volInput = document.getElementById('volInput');
+    const dbDisplay = document.getElementById('dbDisplay');
+    const statusText = document.getElementById('statusText');
+
+    // Attempt to load the file directly from the folder
+    async function loadDrumFile() {
+        try {
+            const response = await fetch('drums.mp4');
+            const arrayBuffer = await response.arrayBuffer();
+            drumBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+            statusText.innerText = "DRUMS LOADED // READY";
+            statusText.style.color = "var(--neon-green)";
+        } catch (e) {
+            statusText.innerText = "BROWSER BLOCKED LOCAL FILE. TRY FIREFOX.";
+            statusText.style.color = "var(--neon-pink)";
+            console.error("Local file access denied by browser policy.");
+        }
+    }
+
+    function scheduleNote(time) {
+        if (!drumBuffer) return;
+        const source = audioCtx.createBufferSource();
+        source.buffer = drumBuffer;
+        source.connect(gainNode);
+        source.start(time);
+    }
+
+    function scheduler() {
+        while (nextNoteTime < audioCtx.currentTime + 0.1) {
+            scheduleNote(nextNoteTime);
+            let bpm = parseFloat(bpmInput.value) || 120;
+            nextNoteTime += 60.0 / bpm;
+        }
+        timerID = setTimeout(scheduler, 25);
+    }
+
+    document.getElementById('playBtn').addEventListener('click', async () => {
+        if (isPlaying) return;
+        
+        if (!audioCtx) {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            gainNode = audioCtx.createGain();
+            gainNode.connect(audioCtx.destination);
+            await loadDrumFile();
+        }
+
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        
+        if (drumBuffer) {
+            isPlaying = true;
+            nextNoteTime = audioCtx.currentTime + 0.05;
+            scheduler();
+            statusText.innerText = "STATUS: RUNNING";
+        }
+    });
+
+    document.getElementById('pauseBtn').addEventListener('click', () => {
+        isPlaying = false;
+        clearTimeout(timerID);
+        statusText.innerText = "STATUS: PAUSED";
+    });
+
+    volInput.addEventListener('input', () => {
+        const val = parseFloat(volInput.value);
+        if (gainNode) gainNode.gain.value = val;
+        dbDisplay.innerText = (20 * Math.log10(val)).toFixed(1) + " dB";
+    });
+</script>
+</body>
+</html>
